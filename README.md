@@ -1,5 +1,7 @@
 # go-forwarded
 
+[![GoDoc](https://godoc.org/github.com/stanvit/go-forwarded?status.svg)](https://godoc.org/github.com/stanvit/go-forwarded)
+
 `forwarded` is a Golang decorator/wrapper for [http.Handler](https://golang.org/pkg/net/http/#Handler)
 that parses `X-Forwarded-For` and `X-Forwarded-Protocol`-alike headers and updates passing
 [http.Request.RemoteAddr](https://golang.org/pkg/net/http/#Request) and
