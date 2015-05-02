@@ -1,4 +1,4 @@
-// package forwarded offers a decorator for http.Handler that parses
+// Package forwarded offers a decorator for http.Handler that parses
 // Forwarded header (RFC7239) or individual X-Forwarded-For and X-Forarded-Protocol-alike
 // headers and updates http.Request with the parsed IP address and protocol.
 // The headers are accepted from the list of trusted IP addresses/networks only.
@@ -66,11 +66,12 @@ func getIP(r *http.Request) (ip net.IP, err error) {
 	}
 	ip = net.ParseIP(ipString)
 	if ip == nil {
-		return nil, fmt.Errorf("Failed to parse IP %v", ipString)
+		return nil, fmt.Errorf("failed to parse IP %v", ipString)
 	}
 	return ip, nil
 }
 
+// Wrapper is a configuration structure for the Handler wrapper
 type Wrapper struct {
 	AllowedNets    ipnets.IPNets // A slice of networks that are allowed to set the *Forwarded* headers
 	AllowEmptySrc  bool          // Trust empty remote address (for example, Unix Domain Sockets)
