@@ -108,6 +108,10 @@ func (wrapper *Wrapper) update(r *http.Request) {
 	}
 	if addr != "" {
 		if _, _, err := net.SplitHostPort(addr); err != nil {
+			// If the IP isn't parsebale, we just replace it with 0.0.0.0
+			if net.ParseIP(addr) == nil {
+				addr = "0.0.0.0"
+			}
 			// well, it's fake, but we need some port here
 			addr = net.JoinHostPort(addr, "65535")
 		}

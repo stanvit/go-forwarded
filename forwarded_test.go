@@ -65,11 +65,18 @@ func TestParseForwarded(t *testing.T) {
 	if addr, proto := parseForwarded("for=192.0.2.60;proto=http;by=203.0.113.43"); addr != "192.0.2.60" || proto != "http" {
 		t.Errorf(`Address should be 192.0.2.60 and proto http, not "%v" and "%v"`, addr, proto)
 	}
+	// ports also should be OK
+	if addr, proto := parseForwarded("for=192.0.2.60:2345;proto=http;by=203.0.113.43"); addr != "192.0.2.60:2345" || proto != "http" {
+		t.Errorf(`Address should be 192.0.2.60:2345 and proto http, not "%v" and "%v"`, addr, proto)
+	}
 	// shouldn't freak out because of spaces
 	if addr, proto := parseForwarded(" for = 192.0.2.60 ; proto = http ; by = 203.0.113.43 "); addr != "192.0.2.60" || proto != "http" {
 		t.Errorf(`Address should be 192.0.2.60 and proto http, not "%v" and "%v"`, addr, proto)
 	}
 	// should understand IPv6
+	if addr, proto := parseForwarded(`For="2001:db8:cafe::17"`); addr != "2001:db8:cafe::17" || proto != "" {
+		t.Errorf(`Address should be 2001:db8:cafe::17 and proto "", not "%v" and "%v"`, addr, proto)
+	}
 	if addr, proto := parseForwarded(`For="[2001:db8:cafe::17]:4711"`); addr != "[2001:db8:cafe::17]:4711" || proto != "" {
 		t.Errorf(`Address should be [2001:db8:cafe::17]:4711 and proto "", not "%v" and "%v"`, addr, proto)
 	}
@@ -97,12 +104,12 @@ func TestUpdateForwarded(t *testing.T) {
 	// confirm that Forwarded works, only last instance is taken into account and XFF and XFP are still ignored
 	r, _ = http.NewRequest("GET", "http://127.0.0.1:8080", nil)
 	r.Header.Set("Forwarded", "for=1.2.3.4;proto=https")
-	r.Header.Add("Forwarded", "for=4.3.2.1")
+	r.Header.Add("Forwarded", "for=4.3.2.1:1234")
 	r.Header.Add("X-Forwarded-For", "9.9.9.9")
 	r.Header.Add("X-Forwarded-Proto", "https")
 	wrapper.update(r)
-	if r.RemoteAddr != "4.3.2.1:65535" {
-		t.Errorf("Remote Address should be 4.3.2.1:65535, not %v", r.RemoteAddr)
+	if r.RemoteAddr != "4.3.2.1:1234" {
+		t.Errorf("Remote Address should be 4.3.2.1:1234, not %v", r.RemoteAddr)
 	}
 	if r.TLS != nil {
 		t.Errorf("r.TLS should be nil")
@@ -130,6 +137,14 @@ func TestUpdateForwarded(t *testing.T) {
 	wrapper.update(r)
 	if r.TLS != nil {
 		t.Errorf("r.TLS should be nil")
+	}
+
+	// confirm that the invlid IP is parsed as 0.0.0.0
+	r, _ = http.NewRequest("GET", "http://127.0.0.1:8080", nil)
+	r.Header.Set("Forwarded", "for=256.0.0.1;proto=https")
+	wrapper.update(r)
+	if r.RemoteAddr != "0.0.0.0:65535" {
+		t.Errorf("Remote Address should be 0.0.0.0:65535, not %v", r.RemoteAddr)
 	}
 }
 
@@ -190,12 +205,12 @@ func TestHandler(t *testing.T) {
 
 	// just a normal Forwarded wrapper
 	r, _ := http.NewRequest("GET", "http://127.0.0.1:8080", nil)
-	r.Header.Set("Forwarded", "for=4.3.2.1;proto=https")
+	r.Header.Set("Forwarded", `for="2001:db8:cafe::17";proto=https`)
 	r.RemoteAddr = "127.0.0.1:1234"
 	w := httptest.NewRecorder()
 	wrapper.Handler(http.HandlerFunc(stubHandler)).ServeHTTP(w, r)
-	if r.RemoteAddr != "4.3.2.1:65535" {
-		t.Errorf(`Remote Address should be "4.3.2.1:65535", not "%v"`, r.RemoteAddr)
+	if r.RemoteAddr != "[2001:db8:cafe::17]:65535" {
+		t.Errorf(`Remote Address should be "[2001:db8:cafe::17]:65535", not "%v"`, r.RemoteAddr)
 	}
 	if r.TLS == nil {
 		t.Errorf("r.TLS should be not nil")
