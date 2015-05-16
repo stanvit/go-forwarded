@@ -9,7 +9,7 @@ import (
 )
 
 func TestLatestHeader(t *testing.T) {
-	h := "Foo"
+	h := "Some-Header"
 	r, _ := http.NewRequest("GET", "http://127.0.0.1:8080", nil)
 	// should be empty and shouldn't fail
 	if latestHeader(r, h) != "" {
@@ -26,12 +26,12 @@ func TestLatestHeader(t *testing.T) {
 		t.Errorf(`%v should be "two", not "%v"`, h, v)
 	}
 	// different case, comma-separated values
-	r.Header.Add("fOO", "three, four")
+	r.Header.Add(h, "three, four")
 	if v := latestHeader(r, h); v != "four" {
 		t.Errorf(`%v should be "four", not "%v"`, h, v)
 	}
 	// no space after the comma, counted as a single value
-	r.Header.Add("FOO", "fi,ve")
+	r.Header.Add(h, "fi,ve")
 	if v := latestHeader(r, h); v != "fi,ve" {
 		t.Errorf(`%v should be "fi,ve", not "%v"`, h, v)
 	}
@@ -77,8 +77,9 @@ func TestParseForwarded(t *testing.T) {
 	if addr, proto := parseForwarded(`For="2001:db8:cafe::17"`); addr != "2001:db8:cafe::17" || proto != "" {
 		t.Errorf(`Address should be 2001:db8:cafe::17 and proto "", not "%v" and "%v"`, addr, proto)
 	}
-	if addr, proto := parseForwarded(`For="[2001:db8:cafe::17]:4711"`); addr != "[2001:db8:cafe::17]:4711" || proto != "" {
-		t.Errorf(`Address should be [2001:db8:cafe::17]:4711 and proto "", not "%v" and "%v"`, addr, proto)
+	// case shouldn't matter
+	if addr, proto := parseForwarded(`FOR="[2001:db8:cafe::17]:4711"; PROTO=https`); addr != "[2001:db8:cafe::17]:4711" || proto != "https" {
+		t.Errorf(`Address should be [2001:db8:cafe::17]:4711 and proto "https", not "%v" and "%v"`, addr, proto)
 	}
 }
 
@@ -146,6 +147,19 @@ func TestUpdateForwarded(t *testing.T) {
 	if r.RemoteAddr != "0.0.0.0:65535" {
 		t.Errorf("Remote Address should be 0.0.0.0:65535, not %v", r.RemoteAddr)
 	}
+
+	// confirm that case doesn't matter
+	r, _ = http.NewRequest("GET", "http://127.0.0.1:8080", nil)
+	r.Header.Set("FORWARDED", "FOR=1.2.3.4;PROTO=https")
+	wrapper.update(r)
+	if r.RemoteAddr != "1.2.3.4:65535" {
+		t.Errorf("Remote Address should be 1.2.3.4:65535, not %v", r.RemoteAddr)
+	}
+	r.Header.Set("fORWARDED", "fOR=1.2.3.4;pROTO=https")
+	wrapper.update(r)
+	if r.RemoteAddr != "1.2.3.4:65535" {
+		t.Errorf("Remote Address should be 1.2.3.4:65535, not %v", r.RemoteAddr)
+	}
 }
 
 func TestUpdateXFF(t *testing.T) {
@@ -190,6 +204,21 @@ func TestUpdateXFF(t *testing.T) {
 	wrapper.update(r)
 	if r.TLS != nil {
 		t.Errorf("r.TLS should be nil")
+	}
+
+	// confirm that not only `X-Forwarded-For` and `X-Forwarded-Proto` are allowed
+	wrapper = new(Wrapper)
+	wrapper.ForHeader = "X-Real-Ip"
+	wrapper.ProtocolHeader = "X-Real-Protocol"
+	r, _ = http.NewRequest("GET", "http://127.0.0.1:8080", nil)
+	r.Header.Add("X-Real-Ip", "2.2.2.2")
+	r.Header.Add("X-Real-Protocol", "https")
+	wrapper.update(r)
+	if r.RemoteAddr != "2.2.2.2:65535" {
+		t.Errorf(`Remote Address should be "2.2.2.2:65535", not %v`, r.RemoteAddr)
+	}
+	if r.TLS == nil {
+		t.Errorf("r.TLS should be not nil")
 	}
 }
 
@@ -259,7 +288,7 @@ func TestHandler(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	// test all non-default values
-	wrapper, err := New("1.2.3.4, 192.168.4.0/24, 172.28.45.16/30", true, true, "Foo", "Bar")
+	wrapper, err := New("1.2.3.4, 192.168.4.0/24, 172.28.45.16/30", true, true, "header-one", "HEADER-TWO")
 	if err != nil {
 		t.Errorf("New should run without error: %v", err)
 	}
@@ -272,11 +301,11 @@ func TestNew(t *testing.T) {
 	if !wrapper.ParseForwarded {
 		t.Error("wrapper.parseForwarded should be true")
 	}
-	if hdr := wrapper.ForHeader; hdr != "Foo" {
-		t.Errorf(`wrapper.ForHeader should be "Foo", not "%v"`, hdr)
+	if hdr := wrapper.ForHeader; hdr != "Header-One" {
+		t.Errorf(`wrapper.ForHeader should be "Header-One", not "%v"`, hdr)
 	}
-	if hdr := wrapper.ProtocolHeader; hdr != "Bar" {
-		t.Errorf(`wrapper.ProtocolHeader should be "Bar", not "%v"`, hdr)
+	if hdr := wrapper.ProtocolHeader; hdr != "Header-Two" {
+		t.Errorf(`wrapper.ProtocolHeader should be "Header-Two", not "%v"`, hdr)
 	}
 	// test wrong IP
 	if _, err := New("257.0.0.1", true, true, "Foo", "Bar"); err == nil {

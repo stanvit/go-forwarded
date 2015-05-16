@@ -19,6 +19,7 @@ import (
 	"github.com/stanvit/go-ipnets"
 	"net"
 	"net/http"
+	"net/textproto"
 	"strings"
 )
 
@@ -83,6 +84,10 @@ type Wrapper struct {
 // New parses comma-separated list of IP addresses and/or CIDR subnets and returns configured *Wrapper
 func New(nets string, allowEmpty, parseForwarded bool, forHeader, protocolHeader string) (wrapper *Wrapper, err error) {
 	wrapper = &Wrapper{AllowEmptySrc: allowEmpty, ParseForwarded: parseForwarded, ForHeader: forHeader, ProtocolHeader: protocolHeader}
+	// normalise X-Forwarded-* headers (`sonme-header` -> `Some-Header`)
+	for _, h := range []*string{&wrapper.ForHeader, &wrapper.ProtocolHeader} {
+		*h = textproto.CanonicalMIMEHeaderKey(*h)
+	}
 	if err := wrapper.AllowedNets.Set(nets); err != nil {
 		return nil, err
 	}
