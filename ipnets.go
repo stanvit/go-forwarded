@@ -1,7 +1,3 @@
-// Package ipnets ipmlements a slice of net.IPNet values with the ability
-// to parse comma-delimited IPv4 and IPv6 hosts and networks in CIDR format
-// using flag package and then check if individual net.IP match any of
-// networks in the slice
 package forwarded
 
 import (

@@ -1,6 +1,6 @@
 // Package forwarded offers a decorator for http.Handler that parses
 // Forwarded header (RFC7239) or individual X-Forwarded-For and X-Forarded-Protocol-alike
-// headers and updates http.Request with the parsed IP address and protocol.
+// headers and updates http.Request with the detected IP address and protocol.
 // The headers are accepted from the list of trusted IP addresses/networks only.
 //
 // When IP address is parsed from the configured header, the request.RemoteAddr is updated
@@ -11,6 +11,12 @@
 // encryption and certificates, but could serve as an indicator that some encryption is astually in place.
 //
 // When http is detected, Request.TLS is reset to nil to indicate that no encryption was used.
+//
+// In addition, IPNets ipmlements a slice of net.IPNet values with the ability
+// to parse comma-delimited IPv4 and IPv6 addresses and CIDR networks
+// (optionally using flag package) and then check if individual net.IP is matching any of
+// these networks
+
 package forwarded
 
 import (
