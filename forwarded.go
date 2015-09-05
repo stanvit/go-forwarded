@@ -16,7 +16,6 @@
 // to parse comma-delimited IPv4 and IPv6 addresses and CIDR networks
 // (optionally using flag package) and then check if individual net.IP is matching any of
 // these networks
-
 package forwarded
 
 import (
