@@ -2,7 +2,6 @@ package forwarded
 
 import (
 	"crypto/tls"
-	"github.com/stanvit/go-ipnets"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -226,7 +225,7 @@ func stubHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestHandler(t *testing.T) {
-	allowedIps := make(ipnets.IPNets, 0)
+	allowedIps := make(IPNets, 0)
 	allowedIps.Set("127.0.0.1")
 	wrapper := new(Wrapper)
 	wrapper.ParseForwarded = true

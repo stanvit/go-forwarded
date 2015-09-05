@@ -16,7 +16,6 @@ package forwarded
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/stanvit/go-ipnets"
 	"net"
 	"net/http"
 	"net/textproto"
@@ -74,20 +73,20 @@ func getIP(r *http.Request) (ip net.IP, err error) {
 
 // Wrapper is a configuration structure for the Handler wrapper
 type Wrapper struct {
-	AllowedNets    ipnets.IPNets // A slice of networks that are allowed to set the *Forwarded* headers
-	AllowEmptySrc  bool          // Trust empty remote address (for example, Unix Domain Sockets)
-	ParseForwarded bool          // Parse Forwarded (rfc7239) header. If set to true, other headers are ignored
-	ForHeader      string        // A header with the actual IP address[es] (For example, "X-Forwarded-For")
-	ProtocolHeader string        // A header with the protocol name (http or https. For example "X-Forwarded-Protocol")
+	AllowedNets    IPNets // A slice of networks that are allowed to set the *Forwarded* headers
+	AllowEmptySrc  bool   // Trust empty remote address (for example, Unix Domain Sockets)
+	ParseForwarded bool   // Parse Forwarded (rfc7239) header. If set to true, other headers are ignored
+	ForHeader      string // A header with the actual IP address[es] (For example, "X-Forwarded-For")
+	ProtocolHeader string // A header with the protocol name (http or https. For example "X-Forwarded-Protocol")
 }
 
 // New parses comma-separated list of IP addresses and/or CIDR subnets and returns configured *Wrapper
 func New(nets string, allowEmpty, parseForwarded bool, forHeader, protocolHeader string) (wrapper *Wrapper, err error) {
 	wrapper = &Wrapper{AllowEmptySrc: allowEmpty, ParseForwarded: parseForwarded, ForHeader: forHeader, ProtocolHeader: protocolHeader}
 	// normalise X-Forwarded-* headers (`sonme-header` -> `Some-Header`)
-	for _, h := range []*string{&wrapper.ForHeader, &wrapper.ProtocolHeader} {
-		*h = textproto.CanonicalMIMEHeaderKey(*h)
-	}
+	wrapper.ForHeader = textproto.CanonicalMIMEHeaderKey(wrapper.ForHeader)
+	wrapper.ProtocolHeader = textproto.CanonicalMIMEHeaderKey(wrapper.ProtocolHeader)
+	// parse comma-separated list of IPs and CIDRs and store it at wrapper.AllowedNets
 	if err := wrapper.AllowedNets.Set(nets); err != nil {
 		return nil, err
 	}
